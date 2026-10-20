@@ -1,0 +1,184 @@
+---
+import { getSiteSettings } from '../lib/db.ts';
+
+const settings = getSiteSettings();
+const currentYear = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="site-container">
+    <div class="footer-top">
+      <div class="footer-brand-col">
+        <a href="/" class="footer-wordmark">
+          <span class="brand-zero">0</span>served
+        </a>
+        <p class="footer-positioning">
+          {settings.site_tagline}
+        </p>
+        <p class="footer-description">
+          An independent research and intelligence company investigating markets, corporate governance, capital intensity, and structural inflection points.
+        </p>
+      </div>
+
+      <div class="footer-nav-grid">
+        <div class="footer-nav-col">
+          <p class="footer-col-title">Publication</p>
+          <ul>
+            <li><a href="/research">Research Reports</a></li>
+            <li><a href="/markets">Covered Markets</a></li>
+            <li><a href="/archive">Complete Archive</a></li>
+            <li><a href="/rss.xml">RSS Feed</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-nav-col">
+          <p class="footer-col-title">Organization</p>
+          <ul>
+            <li><a href="/about">About 0served</a></li>
+            <li><a href="/about#principles">Editorial Principles</a></li>
+            <li><a href="/contact">Inquiries &amp; Desk</a></li>
+            <li><a href="/admin">Desk Access</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="editorial-divider"></div>
+
+    <div class="footer-bottom">
+      <div class="footer-legal">
+        <p>&copy; {currentYear} 0served (oserved.com). All rights reserved.</p>
+        <p class="footer-disclaimer">
+          Independent analysis. We accept no sponsored compensation, marketing considerations, or vendor endorsements.
+        </p>
+      </div>
+      <div class="footer-links-meta">
+        {settings.twitter_url && <a href={settings.twitter_url} target="_blank" rel="noopener noreferrer">X</a>}
+        {settings.linkedin_url && <a href={settings.linkedin_url} target="_blank" rel="noopener noreferrer">LinkedIn</a>}
+        {settings.github_url && <a href={settings.github_url} target="_blank" rel="noopener noreferrer">GitHub</a>}
+      </div>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    background-color: var(--bg-surface);
+    border-top: 1px solid var(--border-subtle);
+    padding: 4.5rem 0 3.5rem;
+    margin-top: auto;
+  }
+
+  .footer-top {
+    display: grid;
+    grid-template-columns: 1.6fr 1.4fr;
+    gap: 4rem;
+  }
+
+  .footer-wordmark {
+    font-family: var(--font-sans);
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--text-primary);
+    text-decoration: none;
+    display: inline-block;
+    margin-bottom: 0.75rem;
+  }
+
+  .brand-zero {
+    font-family: var(--font-mono);
+    font-weight: 800;
+  }
+
+  .footer-positioning {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    color: var(--text-primary);
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+  }
+
+  .footer-description {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    max-width: 440px;
+    line-height: 1.6;
+  }
+
+  .footer-nav-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+
+  .footer-col-title {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-primary);
+    margin-bottom: 1.25rem;
+    font-weight: 600;
+  }
+
+  .footer-nav-col ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .footer-nav-col li {
+    margin-bottom: 0.65rem;
+  }
+
+  .footer-nav-col a {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+  }
+
+  .footer-nav-col a:hover {
+    color: var(--text-primary);
+  }
+
+  .footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .footer-disclaimer {
+    margin-top: 0.35rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .footer-links-meta {
+    display: flex;
+    gap: 1.5rem;
+  }
+
+  .footer-links-meta a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+  }
+
+  .footer-links-meta a:hover {
+    color: var(--text-primary);
+  }
+
+  @media (max-width: 768px) {
+    .footer-top {
+      grid-template-columns: 1fr;
+      gap: 3rem;
+    }
+  }
+</style>

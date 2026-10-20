@@ -1,0 +1,287 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { getContactMessages } from '../../../lib/db.ts';
+
+const messages = getContactMessages();
+
+const filterStatus = Astro.url.searchParams.get('status') || 'all';
+const filteredMessages = filterStatus === 'all'
+  ? messages
+  : messages.filter((m) => m.status === filterStatus);
+
+const unreadCount = messages.filter((m) => m.status === 'unread').length;
+---
+
+<AdminLayout title="Desk Inquiries & Transmissions">
+  <div class="inquiry-header">
+    <div>
+      <p class="eyebrow-label">Inbound Transmissions</p>
+      <h1 class="page-title">Desk Inquiries</h1>
+      <p class="inquiry-sub">
+        Direct messages, research proposals, and evidence submissions received via the public contact interface.
+      </p>
+    </div>
+    <div class="inquiry-pills">
+      <a href="/admin/inquiries?status=all" class:list={['inq-pill', { active: filterStatus === 'all' }]}>
+        All ({messages.length})
+      </a>
+      <a href="/admin/inquiries?status=unread" class:list={['inq-pill', { active: filterStatus === 'unread' }]}>
+        Unread ({unreadCount})
+      </a>
+      <a href="/admin/inquiries?status=read" class:list={['inq-pill', { active: filterStatus === 'read' }]}>
+        Read ({messages.length - unreadCount})
+      </a>
+    </div>
+  </div>
+
+  <div class="table-card">
+    {filteredMessages.length > 0 ? (
+      <div class="messages-list">
+        {filteredMessages.map((msg) => (
+          <article class:list={['message-box', { unread: msg.status === 'unread' }]} id={`msg-${msg.id}`}>
+            <div class="msg-header">
+              <div class="msg-sender">
+                <span class="sender-name">{msg.name}</span>
+                {msg.organization && <span class="sender-org">&middot; {msg.organization}</span>}
+                <span class="sender-email">&lt;<a href={`mailto:${msg.email}`}>{msg.email}</a>&gt;</span>
+              </div>
+              <div class="msg-meta">
+                <span class="badge badge-published">{msg.inquiry_type}</span>
+                <time datetime={msg.created_at} class="msg-time">{msg.created_at.slice(0, 16).replace('T', ' ')}</time>
+              </div>
+            </div>
+
+            <div class="msg-body">
+              <p>{msg.message}</p>
+            </div>
+
+            <div class="msg-footer">
+              <span class="msg-status-indicator">
+                Status: <strong>{msg.status.toUpperCase()}</strong>
+              </span>
+
+              <div class="msg-actions">
+                <a href={`mailto:${msg.email}?subject=RE: 0served Inquiry (${msg.inquiry_type})`} class="btn btn-secondary btn-sm">
+                  Reply via Email &rarr;
+                </a>
+                {msg.status === 'unread' ? (
+                  <button class="btn btn-secondary btn-sm status-btn" data-id={msg.id} data-status="read">
+                    Mark as Read
+                  </button>
+                ) : (
+                  <button class="btn btn-secondary btn-sm status-btn" data-id={msg.id} data-status="unread">
+                    Mark as Unread
+                  </button>
+                )}
+                <button class="btn btn-secondary btn-sm status-btn" data-id={msg.id} data-status="archived">
+                  Archive
+                </button>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    ) : (
+      <div class="empty-inquiry-box">
+        <p class="empty-title">No inquiries match this filter.</p>
+        <p class="empty-desc">New transmissions submitted through the contact page will arrive here.</p>
+      </div>
+    )}
+  </div>
+</AdminLayout>
+
+<script>
+  document.querySelectorAll('.status-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id');
+      const status = btn.getAttribute('data-status');
+      if (!id || !status) return;
+
+      try {
+        const res = await fetch(`/api/admin/inquiries/${id}/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+        });
+
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          alert('Failed to update inquiry status.');
+        }
+      } catch {
+        alert('Network error updating status.');
+      }
+    });
+  });
+</script>
+
+<style>
+  .inquiry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 2rem;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .page-title {
+    font-size: 2.25rem;
+    margin-top: 0.35rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .inquiry-sub {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    color: var(--text-secondary);
+    max-width: 780px;
+  }
+
+  .inquiry-pills {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .inq-pill {
+    font-size: 0.8125rem;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--border-subtle);
+    background-color: var(--bg-surface);
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-radius: 2px;
+  }
+
+  .inq-pill:hover {
+    border-color: var(--text-primary);
+    color: var(--text-primary);
+  }
+
+  .inq-pill.active {
+    background-color: var(--text-primary);
+    color: #ffffff;
+    border-color: var(--text-primary);
+  }
+
+  .table-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .messages-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .message-box {
+    padding: 1.75rem 2rem;
+    border-bottom: 1px solid var(--border-subtle);
+    transition: background-color var(--transition-fast);
+  }
+
+  .message-box:last-child {
+    border-bottom: none;
+  }
+
+  .message-box.unread {
+    background-color: #fcfbfa;
+    border-left: 3px solid var(--color-accent);
+  }
+
+  .msg-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 1rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .msg-sender {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .sender-name {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: var(--text-primary);
+  }
+
+  .sender-org {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+  }
+
+  .sender-email {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+  }
+
+  .sender-email a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .msg-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .msg-time {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .msg-body {
+    font-family: var(--font-serif);
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin-bottom: 1.25rem;
+    white-space: pre-line;
+  }
+
+  .msg-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 0.85rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .msg-status-indicator {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+  }
+
+  .msg-actions {
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  .empty-inquiry-box {
+    padding: 4rem 2rem;
+    text-align: center;
+  }
+
+  .empty-title {
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .empty-desc {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+</style>

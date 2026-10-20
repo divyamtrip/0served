@@ -1,0 +1,495 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { getMediaAssets } from '../../../lib/db.ts';
+
+const assets = getMediaAssets();
+
+function formatBytes(bytes: number, decimals = 1) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+---
+
+<AdminLayout title="Media & Evidence Library">
+  <div class="media-header">
+    <div>
+      <p class="eyebrow-label">Asset Repository</p>
+      <h1 class="page-title">Media &amp; Evidence Library</h1>
+      <p class="media-sub">
+        Upload and manage report graphics, evidence exhibits, chart previews, and downloadable PDF dossiers.
+      </p>
+    </div>
+  </div>
+
+  <!-- Drag-and-Drop Upload Card -->
+  <div class="upload-card">
+    <div class="upload-dropzone" id="dropzone">
+      <div class="dropzone-content">
+        <svg class="upload-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        <p class="dropzone-title">Upload Research Exhibits &amp; Documents</p>
+        <p class="dropzone-hint">
+          Drag and drop files here, or <label for="file-input" class="file-label-btn">browse computer</label>
+        </p>
+        <input type="file" id="file-input" class="file-input-hidden" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/avif,application/pdf" />
+        <p class="dropzone-specs">
+          Permitted formats: PNG, JPEG, WebP, SVG, AVIF (up to 10MB) &middot; PDF Dossiers (up to 25MB)
+        </p>
+      </div>
+
+      <div id="upload-status" class="upload-status-box" hidden>
+        <div class="progress-bar-bg">
+          <div id="progress-bar" class="progress-bar-fill"></div>
+        </div>
+        <p id="upload-msg" class="upload-status-text">Uploading asset...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Media Assets Gallery / List -->
+  <div class="assets-section">
+    <div class="section-label-row">
+      <h2 class="section-title">Stored Assets ({assets.length})</h2>
+    </div>
+
+    {assets.length > 0 ? (
+      <div class="assets-grid">
+        {assets.map((asset) => (
+          <div class="asset-card" id={`asset-${asset.id}`}>
+            <div class="asset-preview-box">
+              {asset.mime_type.startsWith('image/') ? (
+                <img src={asset.public_url} alt={asset.original_name} class="asset-thumb" loading="lazy" />
+              ) : (
+                <div class="pdf-icon-box">
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                  </svg>
+                  <span class="pdf-badge-label">PDF DOSSIER</span>
+                </div>
+              )}
+            </div>
+
+            <div class="asset-info">
+              <span class="asset-name" title={asset.original_name}>{asset.original_name}</span>
+              <div class="asset-meta-row">
+                <span>{formatBytes(asset.file_size)}</span>
+                <span>&middot;</span>
+                <time datetime={asset.created_at}>{asset.created_at.slice(0, 10)}</time>
+              </div>
+
+              <div class="asset-actions">
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm copy-url-btn"
+                  data-url={asset.public_url}
+                  title="Copy asset URL to clipboard"
+                >
+                  Copy URL
+                </button>
+                <a
+                  href={asset.public_url}
+                  target="_blank"
+                  class="btn btn-secondary btn-sm"
+                  title="View full asset in new tab"
+                >
+                  View
+                </a>
+                <button
+                  type="button"
+                  class="btn btn-danger btn-sm delete-asset-btn"
+                  data-id={asset.id}
+                  data-name={asset.original_name}
+                  title="Delete asset from disk and library"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div class="empty-media-box">
+        <p class="empty-title">No assets stored in the media repository.</p>
+        <p class="empty-desc">
+          Upload report cover graphics, empirical charts, or PDF publications above to manage them here.
+        </p>
+      </div>
+    )}
+  </div>
+
+  <div id="media-toast" class="toast" role="status" aria-live="polite" hidden>
+    Asset URL copied to clipboard
+  </div>
+</AdminLayout>
+
+<script>
+  const fileInput = document.getElementById('file-input') as HTMLInputElement | null;
+  const dropzone = document.getElementById('dropzone');
+  const uploadStatus = document.getElementById('upload-status');
+  const progressBar = document.getElementById('progress-bar');
+  const uploadMsg = document.getElementById('upload-msg');
+  const toast = document.getElementById('media-toast');
+
+  // Copy URL action
+  document.querySelectorAll('.copy-url-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const url = btn.getAttribute('data-url');
+      if (!url) return;
+      try {
+        const fullUrl = window.location.origin + url;
+        await navigator.clipboard.writeText(fullUrl);
+        if (toast) {
+          toast.hidden = false;
+          toast.classList.add('visible');
+          setTimeout(() => {
+            toast.classList.remove('visible');
+            setTimeout(() => { toast.hidden = true; }, 200);
+          }, 2000);
+        }
+      } catch {
+        alert('Could not copy URL to clipboard.');
+      }
+    });
+  });
+
+  // Delete action
+  document.querySelectorAll('.delete-asset-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id');
+      const name = btn.getAttribute('data-name');
+      if (!id) return;
+
+      if (confirm(`Permanently delete asset "${name}"? Any reports embedding this asset will display a broken link.`)) {
+        try {
+          const res = await fetch(`/api/admin/media/${id}`, { method: 'DELETE' });
+          if (res.ok) {
+            window.location.reload();
+          } else {
+            alert('Failed to delete asset.');
+          }
+        } catch {
+          alert('Network error deleting asset.');
+        }
+      }
+    });
+  });
+
+  // Upload handler
+  async function uploadFile(file: File) {
+    if (!uploadStatus || !progressBar || !uploadMsg) return;
+
+    uploadStatus.hidden = false;
+    progressBar.style.width = '30%';
+    uploadMsg.textContent = `Uploading "${file.name}"...`;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      progressBar.style.width = '70%';
+      const res = await fetch('/api/admin/media/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        progressBar.style.width = '100%';
+        uploadMsg.textContent = 'Upload complete!';
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      } else {
+        uploadStatus.hidden = false;
+        progressBar.style.width = '0%';
+        uploadMsg.textContent = data.error || 'Upload failed.';
+        alert('Upload rejected: ' + (data.error || 'Check file format or size'));
+      }
+    } catch {
+      uploadMsg.textContent = 'Network error during upload.';
+      alert('Upload failed due to network error.');
+    }
+  }
+
+  fileInput?.addEventListener('change', () => {
+    if (fileInput.files && fileInput.files[0]) {
+      uploadFile(fileInput.files[0]);
+    }
+  });
+
+  // Drag and drop events
+  dropzone?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.classList.add('drag-over');
+  });
+
+  dropzone?.addEventListener('dragleave', () => {
+    dropzone.classList.remove('drag-over');
+  });
+
+  dropzone?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag-over');
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+      uploadFile(e.dataTransfer.files[0]);
+    }
+  });
+</script>
+
+<style>
+  .media-header {
+    margin-bottom: 2rem;
+  }
+
+  .page-title {
+    font-size: 2.25rem;
+    margin-top: 0.35rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .media-sub {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    color: var(--text-secondary);
+    max-width: 780px;
+  }
+
+  /* Upload Card */
+  .upload-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 2.5rem;
+    margin-bottom: 3.5rem;
+  }
+
+  .upload-dropzone {
+    border: 2px dashed var(--border-subtle);
+    background-color: var(--bg-subtle);
+    padding: 3rem 2rem;
+    text-align: center;
+    border-radius: 2px;
+    transition: all var(--transition-fast);
+  }
+
+  .upload-dropzone.drag-over {
+    border-color: var(--text-primary);
+    background-color: #f0f0ed;
+  }
+
+  .upload-icon {
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+
+  .dropzone-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.35rem;
+  }
+
+  .dropzone-hint {
+    font-size: 0.9375rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+  }
+
+  .file-label-btn {
+    color: var(--color-accent);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  .file-input-hidden {
+    display: none;
+  }
+
+  .dropzone-specs {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 0;
+  }
+
+  .upload-status-box {
+    margin-top: 1.5rem;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .progress-bar-bg {
+    height: 4px;
+    background-color: var(--border-subtle);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background-color: var(--color-accent);
+    transition: width 0.3s ease;
+  }
+
+  .upload-status-text {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-primary);
+    margin-bottom: 0;
+  }
+
+  /* Assets Grid */
+  .section-label-row {
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .section-title {
+    font-size: 1.35rem;
+  }
+
+  .assets-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.75rem;
+  }
+
+  .asset-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .asset-preview-box {
+    height: 160px;
+    background-color: var(--bg-subtle);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .asset-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .pdf-icon-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-muted);
+  }
+
+  .pdf-badge-label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+
+  .asset-info {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+  }
+
+  .asset-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 0.35rem;
+  }
+
+  .asset-meta-row {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .asset-actions {
+    display: flex;
+    gap: 0.35rem;
+    margin-top: auto;
+    flex-wrap: wrap;
+  }
+
+  .empty-media-box {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 3.5rem 2rem;
+    text-align: center;
+  }
+
+  .empty-title {
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .empty-desc {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+
+  /* Toast Notification */
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background-color: var(--text-primary);
+    color: #ffffff;
+    font-size: 0.875rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 2px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.2s ease;
+  }
+
+  .toast.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @media (max-width: 1100px) {
+    .assets-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .assets-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

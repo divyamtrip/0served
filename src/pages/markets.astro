@@ -1,0 +1,246 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getCategories, getPublishedReports } from '../lib/db.ts';
+
+const categories = getCategories();
+const { reports: allPublished } = getPublishedReports({ limit: 100 });
+
+// Map published reports to categories
+const categoryMap = categories.map((cat) => {
+  const publishedInCat = allPublished.filter((r) => r.category_id === cat.id);
+  return {
+    ...cat,
+    reports: publishedInCat,
+    hasReports: publishedInCat.length > 0,
+  };
+});
+---
+
+<Layout
+  title="Covered Markets & Research Domains | 0served"
+  description="Examine the core research domains investigated by 0served: technology infrastructure, industrial capacity, competitive dynamics, and capital strategy."
+>
+  <div class="site-container">
+    <div class="markets-hero">
+      <p class="eyebrow-label">Investigation Scope</p>
+      <h1 class="markets-title">Research Domains</h1>
+      <p class="markets-lead">
+        0served investigates sectors where high capital intensity, structural incentives, and complex technological transitions create an asymmetry between public narratives and physical reality.
+      </p>
+    </div>
+
+    <div class="editorial-divider"></div>
+
+    <div class="domains-list">
+      {categoryMap.map((cat) => (
+        <section class="domain-card" id={cat.slug}>
+          <div class="domain-header">
+            <div>
+              <p class="domain-order">DOMAIN {String(cat.display_order).padStart(2, '0')}</p>
+              <h2 class="domain-name">{cat.name}</h2>
+            </div>
+            <div class="domain-status">
+              {cat.hasReports ? (
+                <span class="badge badge-published">
+                  {cat.reports.length} {cat.reports.length === 1 ? 'Publication Active' : 'Publications Active'}
+                </span>
+              ) : (
+                <span class="badge badge-archived">Coverage Under Development</span>
+              )}
+            </div>
+          </div>
+
+          <p class="domain-desc">{cat.description}</p>
+
+          <!-- List of publications in this domain -->
+          {cat.hasReports ? (
+            <div class="domain-publications">
+              <p class="eyebrow-label">Published In This Domain</p>
+              <ul class="domain-report-list">
+                {cat.reports.map((rep) => (
+                  <li class="domain-report-item">
+                    <div class="item-left">
+                      <time datetime={rep.published_at || rep.created_at} class="item-date">
+                        {rep.published_at || rep.created_at.slice(0, 10)}
+                      </time>
+                      <h3 class="item-title">
+                        <a href={`/research/${rep.slug}`}>{rep.title}</a>
+                      </h3>
+                    </div>
+                    <a href={`/research/${rep.slug}`} class="item-cta">
+                      Examine &rarr;
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <div class="domain-empty-notice">
+              <p>
+                No public reports have been released for this domain yet.
+                0served does not fabricate findings; primary research is currently underway.
+              </p>
+            </div>
+          )}
+        </section>
+      ))}
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .markets-hero {
+    padding: 4.5rem 0 2.5rem;
+    max-width: 820px;
+  }
+
+  .markets-title {
+    font-size: 2.75rem;
+    line-height: 1.2;
+    margin: 0.85rem 0 1rem;
+  }
+
+  .markets-lead {
+    font-family: var(--font-serif);
+    font-size: 1.2rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+  }
+
+  .domains-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3.5rem;
+    margin-bottom: 6rem;
+  }
+
+  .domain-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 3rem;
+  }
+
+  .domain-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+    gap: 1.5rem;
+  }
+
+  .domain-order {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 0.35rem;
+  }
+
+  .domain-name {
+    font-size: 1.85rem;
+    line-height: 1.3;
+  }
+
+  .domain-desc {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 2rem;
+    max-width: 820px;
+  }
+
+  .domain-publications {
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 1.5rem;
+  }
+
+  .domain-report-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0 0;
+  }
+
+  .domain-report-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border-subtle);
+    gap: 1.5rem;
+  }
+
+  .domain-report-item:last-child {
+    border-bottom: none;
+  }
+
+  .item-left {
+    display: flex;
+    align-items: baseline;
+    gap: 1.5rem;
+  }
+
+  .item-date {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .item-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+  }
+
+  .item-title a {
+    color: var(--text-primary);
+    text-decoration: none;
+  }
+
+  .item-title a:hover {
+    color: var(--color-accent);
+  }
+
+  .item-cta {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-accent);
+    white-space: nowrap;
+  }
+
+  .domain-empty-notice {
+    background-color: var(--bg-subtle);
+    border: 1px dashed var(--border-subtle);
+    padding: 1.25rem 1.5rem;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  .domain-empty-notice p {
+    margin-bottom: 0;
+  }
+
+  @media (max-width: 768px) {
+    .domain-card {
+      padding: 2rem;
+    }
+
+    .domain-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .domain-report-item {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .item-left {
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+  }
+</style>

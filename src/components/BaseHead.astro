@@ -1,0 +1,95 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+  image?: string;
+  type?: 'website' | 'article';
+  publishedTime?: string;
+  modifiedTime?: string;
+  author?: string;
+  canonicalUrl?: string;
+}
+
+const {
+  title,
+  description = '0served investigates markets, companies, industries, competitive dynamics, and emerging developments to turn fragmented evidence into structured intelligence.',
+  image = '/og-image.png',
+  type = 'website',
+  publishedTime,
+  modifiedTime,
+  author = '0served Intelligence Unit',
+  canonicalUrl = Astro.url.href,
+} = Astro.props;
+
+const siteTitle = title.includes('0served') ? title : `${title} | 0served`;
+---
+
+<!-- Global Metadata -->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="alternate icon" href="/favicon.ico" />
+<meta name="generator" content={Astro.generator} />
+
+<!-- Canonical URL -->
+<link rel="canonical" href={canonicalUrl} />
+
+<!-- Primary Meta Tags -->
+<title>{siteTitle}</title>
+<meta name="title" content={siteTitle} />
+<meta name="description" content={description} />
+<meta name="author" content={author} />
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content={type} />
+<meta property="og:url" content={Astro.url} />
+<meta property="og:title" content={siteTitle} />
+<meta property="og:description" content={description} />
+<meta property="og:image" content={new URL(image, Astro.url)} />
+<meta property="og:site_name" content="0served" />
+
+{publishedTime && <meta property="article:published_time" content={publishedTime} />}
+{modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
+{author && <meta property="article:author" content={author} />}
+
+<!-- Twitter -->
+<meta property="twitter:card" content="summary_large_image" />
+<meta property="twitter:url" content={Astro.url} />
+<meta property="twitter:title" content={siteTitle} />
+<meta property="twitter:description" content={description} />
+<meta property="twitter:image" content={new URL(image, Astro.url)} />
+
+<!-- RSS Feed Discovery -->
+<link rel="alternate" type="application/rss+xml" title="0served Research Publications" href="/rss.xml" />
+
+<!-- Structured JSON-LD Data -->
+<script type="application/ld+json" set:html={JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": type === 'article' ? "ScholarlyArticle" : "Organization",
+  ...(type === 'article' ? {
+    "headline": title,
+    "description": description,
+    "datePublished": publishedTime,
+    "dateModified": modifiedTime || publishedTime,
+    "author": {
+      "@type": "Organization",
+      "name": author,
+      "url": "https://oserved.com"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "0served",
+      "url": "https://oserved.com"
+    }
+  } : {
+    "name": "0served",
+    "url": "https://oserved.com",
+    "description": description,
+    "sameAs": [
+      "https://x.com/0served",
+      "https://github.com/divyamtrip/0served"
+    ]
+  })
+})} />

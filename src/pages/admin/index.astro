@@ -1,0 +1,416 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getDb } from '../../lib/db.ts';
+
+const db = getDb();
+
+const publishedCount = (
+  db.prepare("SELECT COUNT(*) as count FROM reports WHERE status = 'published'").get() as { count: number }
+).count;
+
+const draftCount = (
+  db.prepare("SELECT COUNT(*) as count FROM reports WHERE status = 'draft'").get() as { count: number }
+).count;
+
+const archivedCount = (
+  db.prepare("SELECT COUNT(*) as count FROM reports WHERE status = 'archived'").get() as { count: number }
+).count;
+
+const categoryCount = (
+  db.prepare("SELECT COUNT(*) as count FROM categories").get() as { count: number }
+).count;
+
+const unreadInquiries = (
+  db.prepare("SELECT COUNT(*) as count FROM contact_messages WHERE status = 'unread'").get() as { count: number }
+).count;
+
+const recentlyUpdated = db.prepare(`
+  SELECT id, title, slug, category_name, status, updated_at, published_at
+  FROM reports
+  ORDER BY updated_at DESC
+  LIMIT 5
+`).all() as any[];
+
+const recentlyPublished = db.prepare(`
+  SELECT id, title, slug, category_name, published_at
+  FROM reports
+  WHERE status = 'published'
+  ORDER BY published_at DESC
+  LIMIT 5
+`).all() as any[];
+---
+
+<AdminLayout title="Dashboard">
+  <div class="dash-header">
+    <div>
+      <p class="eyebrow-label">Overview &amp; Telemetry</p>
+      <h1 class="dash-title">Editorial Desk</h1>
+    </div>
+    <div class="dash-actions">
+      <a href="/admin/reports/new" class="btn btn-primary">+ Create Report</a>
+      <a href="/admin/categories" class="btn btn-secondary">Categories</a>
+      <a href="/admin/media" class="btn btn-secondary">Media</a>
+    </div>
+  </div>
+
+  <!-- Metric Badges (Real Counts Only) -->
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <span class="metric-label">Published Reports</span>
+      <span class="metric-val">{publishedCount}</span>
+      <span class="metric-sub">Active in public dossier</span>
+    </div>
+
+    <div class="metric-card">
+      <span class="metric-label">Draft Reports</span>
+      <span class="metric-val">{draftCount}</span>
+      <span class="metric-sub">Private editorial work</span>
+    </div>
+
+    <div class="metric-card">
+      <span class="metric-label">Archived Reports</span>
+      <span class="metric-val">{archivedCount}</span>
+      <span class="metric-sub">Preserved in vault</span>
+    </div>
+
+    <div class="metric-card">
+      <span class="metric-label">Research Domains</span>
+      <span class="metric-val">{categoryCount}</span>
+      <span class="metric-sub">Active categories</span>
+    </div>
+
+    <div class="metric-card">
+      <span class="metric-label">Desk Inquiries</span>
+      <span class="metric-val">{unreadInquiries}</span>
+      <span class="metric-sub">Unread inbound messages</span>
+    </div>
+  </div>
+
+  <!-- Main Grid: Recently Updated & Recently Published -->
+  <div class="dash-grid">
+    <!-- Recently Updated -->
+    <section class="dash-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Recently Updated Reports</h2>
+        <a href="/admin/reports" class="panel-link">All Reports &rarr;</a>
+      </div>
+
+      {recentlyUpdated.length > 0 ? (
+        <div class="table-container">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Domain</th>
+                <th>Status</th>
+                <th>Updated</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentlyUpdated.map((r) => (
+                <tr>
+                  <td>
+                    <a href={`/admin/reports/${r.id}/edit`} class="table-row-title">
+                      {r.title}
+                    </a>
+                  </td>
+                  <td>
+                    <span class="table-meta">{r.category_name}</span>
+                  </td>
+                  <td>
+                    <span class:list={['badge', `badge-${r.status}`]}>
+                      {r.status}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="table-date">{r.updated_at.slice(0, 10)}</span>
+                  </td>
+                  <td>
+                    <div class="row-btns">
+                      <a href={`/admin/reports/${r.id}/edit`} class="btn btn-secondary btn-sm">Edit</a>
+                      <a href={`/research/${r.slug}?preview=true`} target="_blank" class="btn btn-secondary btn-sm">Preview</a>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div class="empty-panel">No reports have been created yet.</div>
+      )}
+    </section>
+
+    <!-- Side Panel: Recent Releases & Fast Links -->
+    <div class="dash-side-col">
+      <section class="dash-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Active Publications</h2>
+        </div>
+        {recentlyPublished.length > 0 ? (
+          <ul class="recent-pub-list">
+            {recentlyPublished.map((p) => (
+              <li class="pub-list-item">
+                <span class="pub-list-date">{p.published_at}</span>
+                <a href={`/research/${p.slug}`} target="_blank" class="pub-list-title">
+                  {p.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="empty-side-text">No reports are currently published.</p>
+        )}
+      </section>
+
+      <section class="dash-panel quick-tools-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Quick Tasks</h2>
+        </div>
+        <div class="tools-list">
+          <a href="/admin/reports/new" class="tool-link">
+            <span>+ Draft a new investigation</span>
+            <span>&rarr;</span>
+          </a>
+          <a href="/admin/media" class="tool-link">
+            <span>&uarr; Upload chart, figure, or PDF</span>
+            <span>&rarr;</span>
+          </a>
+          <a href="/admin/categories" class="tool-link">
+            <span>&equiv; Add or edit research domain</span>
+            <span>&rarr;</span>
+          </a>
+          <a href="/admin/inquiries" class="tool-link">
+            <span>&bull; Review desk inquiries ({unreadInquiries} unread)</span>
+            <span>&rarr;</span>
+          </a>
+          <a href="/admin/settings" class="tool-link">
+            <span>&#9881; Site settings &amp; featured report</span>
+            <span>&rarr;</span>
+          </a>
+        </div>
+      </section>
+    </div>
+  </div>
+</AdminLayout>
+
+<style>
+  .dash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 2.5rem;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .dash-title {
+    font-size: 2.25rem;
+    margin-top: 0.35rem;
+  }
+
+  .dash-actions {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  /* Metrics Grid */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1.25rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .metric-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .metric-label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .metric-val {
+    font-family: var(--font-mono);
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+    margin-bottom: 0.4rem;
+  }
+
+  .metric-sub {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  /* Dash Grid */
+  .dash-grid {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 2rem;
+  }
+
+  .dash-panel {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 1.75rem;
+  }
+
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .panel-title {
+    font-size: 1.15rem;
+  }
+
+  .panel-link {
+    font-size: 0.8125rem;
+    color: var(--color-accent);
+    font-weight: 500;
+  }
+
+  .admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+  }
+
+  .admin-table th {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.6rem 0.75rem;
+  }
+
+  .admin-table td {
+    padding: 0.85rem 0.75rem;
+    vertical-align: middle;
+  }
+
+  .table-row-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    text-decoration: none;
+    line-height: 1.3;
+    display: inline-block;
+  }
+
+  .table-row-title:hover {
+    color: var(--color-accent);
+  }
+
+  .table-meta, .table-date {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .row-btns {
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  .dash-side-col {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .recent-pub-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .pub-list-item {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .pub-list-item:last-child {
+    border-bottom: none;
+  }
+
+  .pub-list-date {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+  }
+
+  .pub-list-title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .pub-list-title:hover {
+    color: var(--color-accent);
+  }
+
+  .quick-tools-panel .tools-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tool-link {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+
+  .tool-link:hover {
+    color: var(--text-primary);
+  }
+
+  .tool-link:last-child {
+    border-bottom: none;
+  }
+
+  .empty-panel, .empty-side-text {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    padding: 1rem 0;
+  }
+
+  @media (max-width: 1100px) {
+    .metrics-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .dash-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 680px) {
+    .metrics-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+</style>

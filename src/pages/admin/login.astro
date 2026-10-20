@@ -1,0 +1,261 @@
+---
+import BaseHead from '../../components/BaseHead.astro';
+import { getDb } from '../../lib/db.ts';
+import { validateSession, SESSION_COOKIE_NAME } from '../../lib/auth.ts';
+
+// If already logged in as owner, redirect directly to dashboard
+const sessionCookie = Astro.cookies.get(SESSION_COOKIE_NAME)?.value;
+if (sessionCookie) {
+  const auth = validateSession(sessionCookie);
+  if (auth && auth.user.role === 'owner') {
+    return Astro.redirect('/admin');
+  }
+}
+
+const db = getDb();
+const userCount = (db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'owner'").get() as { count: number }).count;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <BaseHead
+      title="Editorial Desk Authentication | 0served"
+      description="Private editorial desk access for 0served publication management."
+    />
+  </head>
+  <body class="login-body">
+    <div class="login-wrapper">
+      <div class="login-header">
+        <a href="/" class="login-brand">
+          <span class="brand-zero">0</span>served
+        </a>
+        <p class="login-subtitle">Editorial Desk &amp; Publication Administration</p>
+      </div>
+
+      <div class="login-card">
+        {userCount === 0 ? (
+          <div class="uninitialized-notice">
+            <p class="notice-title">Owner Account Not Provisioned</p>
+            <p class="notice-body">
+              No owner account exists in this instance yet. Run the CLI provisioning command from your project terminal to initialize your credentials:
+            </p>
+            <pre class="cli-command"><code>node scripts/provision-owner.mjs --email=owner@oserved.com --password="YourPassword"</code></pre>
+            <p class="notice-body">Or run: <code>npm run owner:create</code></p>
+          </div>
+        ) : (
+          <form id="login-form" class="auth-form" novalidate>
+            <div id="error-banner" class="error-banner" role="alert" hidden></div>
+
+            <div class="form-field">
+              <label for="email">Authorized Email Address</label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                required
+                autocomplete="email"
+                placeholder="owner@oserved.com"
+                autofocus
+              />
+            </div>
+
+            <div class="form-field">
+              <label for="password">Account Password</label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                required
+                autocomplete="current-password"
+                placeholder="••••••••••••"
+              />
+            </div>
+
+            <button type="submit" id="login-btn" class="btn btn-primary login-submit-btn">
+              Authenticate &rarr;
+            </button>
+          </form>
+        )}
+
+        <div class="login-footer">
+          <a href="/" class="back-link">&larr; Return to public publication</a>
+          <span class="security-note">Encrypted Session &middot; Rate Limited</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById('login-form') as HTMLFormElement | null;
+      const errorBanner = document.getElementById('error-banner') as HTMLDivElement | null;
+      const submitBtn = document.getElementById('login-btn') as HTMLButtonElement | null;
+
+      if (form && errorBanner && submitBtn) {
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          errorBanner.hidden = true;
+          errorBanner.textContent = '';
+
+          const emailInput = document.getElementById('email') as HTMLInputElement;
+          const passwordInput = document.getElementById('password') as HTMLInputElement;
+
+          if (!emailInput.value.trim() || !passwordInput.value) {
+            errorBanner.hidden = false;
+            errorBanner.textContent = 'Please provide both your email address and password.';
+            return;
+          }
+
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Authenticating...';
+
+          try {
+            const res = await fetch('/api/admin/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: emailInput.value.trim(),
+                password: passwordInput.value,
+              }),
+            });
+
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+              window.location.href = data.redirect || '/admin';
+            } else {
+              errorBanner.hidden = false;
+              errorBanner.textContent = data.error || 'Authentication rejected.';
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Authenticate →';
+            }
+          } catch (err) {
+            errorBanner.hidden = false;
+            errorBanner.textContent = 'A connection error occurred. Please check your network.';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Authenticate →';
+          }
+        });
+      }
+    </script>
+
+    <style>
+      .login-body {
+        background-color: var(--bg-subtle);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+      }
+
+      .login-wrapper {
+        width: 100%;
+        max-width: 440px;
+      }
+
+      .login-header {
+        text-align: center;
+        margin-bottom: 2rem;
+      }
+
+      .login-brand {
+        font-family: var(--font-sans);
+        font-size: 1.85rem;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        color: var(--text-primary);
+        text-decoration: none;
+        display: inline-block;
+      }
+
+      .brand-zero {
+        font-family: var(--font-mono);
+        font-weight: 800;
+      }
+
+      .login-subtitle {
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        margin-top: 0.5rem;
+      }
+
+      .login-card {
+        background-color: var(--bg-surface);
+        border: 1px solid var(--border-subtle);
+        padding: 2.5rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+      }
+
+      .form-field {
+        margin-bottom: 1.5rem;
+      }
+
+      .login-submit-btn {
+        width: 100%;
+        padding: 0.75rem;
+        font-size: 0.9375rem;
+        margin-top: 0.5rem;
+      }
+
+      .error-banner {
+        background-color: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        padding: 0.75rem 1rem;
+        font-size: 0.8125rem;
+        border-radius: 2px;
+        margin-bottom: 1.5rem;
+      }
+
+      .login-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 2rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--border-subtle);
+        font-size: 0.75rem;
+      }
+
+      .back-link {
+        color: var(--text-muted);
+        text-decoration: none;
+      }
+
+      .back-link:hover {
+        color: var(--text-primary);
+      }
+
+      .security-note {
+        font-family: var(--font-mono);
+        color: var(--text-muted);
+      }
+
+      .uninitialized-notice {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        line-height: 1.6;
+      }
+
+      .notice-title {
+        font-family: var(--font-serif);
+        font-size: 1.15rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.75rem;
+      }
+
+      .cli-command {
+        background-color: var(--bg-subtle);
+        padding: 0.75rem;
+        font-size: 0.75rem;
+        border: 1px solid var(--border-subtle);
+        overflow-x: auto;
+        margin: 1rem 0;
+      }
+    </style>
+  </body>
+</html>

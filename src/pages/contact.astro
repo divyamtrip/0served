@@ -1,0 +1,328 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getSiteSettings } from '../lib/db.ts';
+
+const settings = getSiteSettings();
+---
+
+<Layout
+  title="Contact the Research Desk | 0served"
+  description="Contact 0served with research inquiries, evidence submissions, or institutional coverage requests."
+>
+  <div class="site-container">
+    <div class="contact-hero">
+      <p class="eyebrow-label">Communications Desk</p>
+      <h1 class="contact-title">Contact 0served</h1>
+      <p class="contact-lead">
+        Inquiries regarding research publications, corrections, primary data verification, and institutional requests are reviewed by our analytical desk.
+      </p>
+    </div>
+
+    <div class="editorial-divider"></div>
+
+    <div class="contact-layout">
+      <!-- Contact Form -->
+      <div class="contact-form-col">
+        <div class="form-container">
+          <form id="contact-form" class="inquiry-form" novalidate>
+            <!-- Honeypot anti-spam field -->
+            <div class="hp-field" aria-hidden="true" style="display: none;">
+              <label for="website_hp">Leave this empty</label>
+              <input type="text" id="website_hp" name="website_hp" tabindex="-1" autocomplete="off" />
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-field">
+                <label for="name">Full Name <span class="required-mark">*</span></label>
+                <input type="text" id="name" name="name" required placeholder="Dr. Elena Rostova" autocomplete="name" />
+                <span class="field-error" id="name-error"></span>
+              </div>
+
+              <div class="form-field">
+                <label for="email">Institutional or Direct Email <span class="required-mark">*</span></label>
+                <input type="email" id="email" name="email" required placeholder="elena@institution.org" autocomplete="email" />
+                <span class="field-error" id="email-error"></span>
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-field">
+                <label for="organization">Organization or Affiliation</label>
+                <input type="text" id="organization" name="organization" placeholder="Optional" autocomplete="organization" />
+              </div>
+
+              <div class="form-field">
+                <label for="inquiry_type">Inquiry Classification</label>
+                <select id="inquiry_type" name="inquiry_type">
+                  <option value="general">General Inquiry</option>
+                  <option value="research_request">Research &amp; Coverage Request</option>
+                  <option value="correction_evidence">Primary Data or Evidence Submission</option>
+                  <option value="press">Press &amp; Media Inquiries</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label for="message">Inquiry Details <span class="required-mark">*</span></label>
+              <textarea
+                id="message"
+                name="message"
+                rows="6"
+                required
+                placeholder="Detail your inquiry, specific publication reference, or factual context..."
+              ></textarea>
+              <span class="field-error" id="message-error"></span>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" id="submit-btn" class="btn btn-primary">
+                Transmit Inquiry &rarr;
+              </button>
+            </div>
+
+            <div id="form-status" class="status-banner" role="status" aria-live="polite" hidden></div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Protocol Sidebar -->
+      <aside class="contact-sidebar">
+        <div class="sidebar-card">
+          <p class="sidebar-heading">Desk Protocol</p>
+          <ul class="protocol-list">
+            <li>
+              <strong>Direct Email:</strong><br />
+              <a href={`mailto:${settings.contact_email}`}>{settings.contact_email}</a>
+            </li>
+            <li>
+              <strong>Response Standards:</strong><br />
+              {settings.contact_response_time}
+            </li>
+            <li>
+              <strong>Confidentiality:</strong><br />
+              Evidence submissions and source transmissions are handled with strict operational discretion.
+            </li>
+            <li>
+              <strong>No Promotional Submissions:</strong><br />
+              We do not accept press releases, sponsored article proposals, or marketing solicitations.
+            </li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  const form = document.getElementById('contact-form') as HTMLFormElement | null;
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement | null;
+  const statusBox = document.getElementById('form-status');
+
+  if (form && submitBtn && statusBox) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Clear errors
+      document.querySelectorAll('.field-error').forEach((el) => (el.textContent = ''));
+      statusBox.hidden = true;
+      statusBox.className = 'status-banner';
+
+      const nameInput = document.getElementById('name') as HTMLInputElement;
+      const emailInput = document.getElementById('email') as HTMLInputElement;
+      const orgInput = document.getElementById('organization') as HTMLInputElement;
+      const inquirySelect = document.getElementById('inquiry_type') as HTMLSelectElement;
+      const messageInput = document.getElementById('message') as HTMLTextAreaElement;
+      const hpInput = document.getElementById('website_hp') as HTMLInputElement;
+
+      let hasError = false;
+
+      if (!nameInput.value.trim() || nameInput.value.trim().length < 2) {
+        document.getElementById('name-error')!.textContent = 'Please enter your name.';
+        hasError = true;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailInput.value.trim() || !emailRegex.test(emailInput.value.trim())) {
+        document.getElementById('email-error')!.textContent = 'Please enter a valid email address.';
+        hasError = true;
+      }
+
+      if (!messageInput.value.trim() || messageInput.value.trim().length < 10) {
+        document.getElementById('message-error')!.textContent = 'Please provide details of at least 10 characters.';
+        hasError = true;
+      }
+
+      if (hasError) return;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Transmitting...';
+
+      try {
+        const res = await fetch('/api/contact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: nameInput.value.trim(),
+            email: emailInput.value.trim(),
+            organization: orgInput.value.trim(),
+            inquiry_type: inquirySelect.value,
+            message: messageInput.value.trim(),
+            website_hp: hpInput ? hpInput.value : '',
+          }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          statusBox.hidden = false;
+          statusBox.classList.add('status-success');
+          statusBox.textContent = data.message || 'Your inquiry has been successfully received.';
+          form.reset();
+        } else {
+          statusBox.hidden = false;
+          statusBox.classList.add('status-error');
+          statusBox.textContent = data.error || 'Transmission failed. Please check your inputs or email directly.';
+        }
+      } catch (err) {
+        statusBox.hidden = false;
+        statusBox.classList.add('status-error');
+        statusBox.textContent = 'A connection error occurred. Please reach out via email directly.';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Transmit Inquiry →';
+      }
+    });
+  }
+</script>
+
+<style>
+  .contact-hero {
+    padding: 4.5rem 0 2.5rem;
+    max-width: 820px;
+  }
+
+  .contact-title {
+    font-size: 2.75rem;
+    line-height: 1.2;
+    margin: 0.85rem 0 1rem;
+  }
+
+  .contact-lead {
+    font-family: var(--font-serif);
+    font-size: 1.2rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+  }
+
+  .contact-layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 4.5rem;
+    padding-bottom: 6rem;
+  }
+
+  .form-container {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 2.75rem;
+  }
+
+  .form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  .form-field {
+    margin-bottom: 1.5rem;
+  }
+
+  .required-mark {
+    color: #b91c1c;
+  }
+
+  .field-error {
+    display: block;
+    font-size: 0.75rem;
+    color: #b91c1c;
+    margin-top: 0.35rem;
+  }
+
+  .form-actions {
+    margin-top: 1rem;
+  }
+
+  .status-banner {
+    margin-top: 1.5rem;
+    padding: 1rem 1.25rem;
+    font-size: 0.875rem;
+    border-radius: 2px;
+  }
+
+  .status-success {
+    background-color: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+  }
+
+  .status-error {
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+  }
+
+  /* Sidebar */
+  .sidebar-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 2rem;
+  }
+
+  .sidebar-heading {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-primary);
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+  }
+
+  .protocol-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+
+  .protocol-list strong {
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    font-family: var(--font-mono);
+  }
+
+  .protocol-list a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  @media (max-width: 860px) {
+    .contact-layout {
+      grid-template-columns: 1fr;
+      gap: 3rem;
+    }
+
+    .form-container {
+      padding: 1.75rem;
+    }
+
+    .form-grid-2 {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+  }
+</style>

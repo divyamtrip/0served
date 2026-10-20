@@ -1,0 +1,747 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { getReportById, getCategories } from '../../../../lib/db.ts';
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/admin/reports');
+
+const report = getReportById(id);
+if (!report) return Astro.redirect('/admin/reports');
+
+const categories = getCategories(true);
+---
+
+<AdminLayout title={`Edit Report: ${report.title}`}>
+  <div class="editor-header">
+    <div>
+      <a href="/admin/reports" class="back-link">&larr; Back to Reports</a>
+      <h1 class="editor-title">Edit Investigation</h1>
+    </div>
+    <div class="header-status">
+      <span id="save-indicator" class="save-indicator">Ready</span>
+      <div class="editor-top-actions">
+        <a
+          href={`/research/${report.slug}?preview=true`}
+          target="_blank"
+          class="btn btn-secondary btn-sm"
+          title="Open preview in new tab"
+        >
+          Preview &rarr;
+        </a>
+        <button id="save-draft-btn" class="btn btn-secondary btn-sm">Save Changes</button>
+        {report.status !== 'published' ? (
+          <button id="publish-btn" class="btn btn-primary btn-sm">Publish Report &rarr;</button>
+        ) : (
+          <button id="unpublish-btn" class="btn btn-secondary btn-sm">Unpublish (Set to Draft)</button>
+        )}
+      </div>
+    </div>
+  </div>
+
+  <form id="report-form" class="editor-form" novalidate data-id={report.id}>
+    <div class="editor-grid">
+      <!-- Main Content Column -->
+      <div class="editor-main-col">
+        <!-- Title & Subtitle -->
+        <div class="card-box">
+          <div class="form-field">
+            <label for="title">Report Title <span class="required-mark">*</span></label>
+            <input
+              type="text"
+              id="title"
+              name="title"
+              required
+              value={report.title}
+              class="input-lg"
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="subtitle">Subtitle or Analytical Framing</label>
+            <input
+              type="text"
+              id="subtitle"
+              name="subtitle"
+              value={report.subtitle}
+            />
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-field">
+              <label for="slug">URL Slug <span class="required-mark">*</span></label>
+              <input
+                type="text"
+                id="slug"
+                name="slug"
+                required
+                value={report.slug}
+              />
+              <span class="field-hint">
+                Public URL: <code>/research/<span id="slug-preview">{report.slug}</span></code>
+                (Changes automatically create a 301 redirect from the old slug).
+              </span>
+            </div>
+
+            <div class="form-field">
+              <label for="category_id">Research Domain <span class="required-mark">*</span></label>
+              <select id="category_id" name="category_id" required>
+                <option value="">Select Domain...</option>
+                {categories.map((c) => (
+                  <option value={c.id} selected={report.category_id === c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Executive Summary -->
+        <div class="card-box">
+          <div class="form-field">
+            <label for="summary">Executive Summary / Abstract <span class="required-mark">*</span></label>
+            <textarea
+              id="summary"
+              name="summary"
+              rows="4"
+              required
+            >{report.summary}</textarea>
+            <span class="field-hint">This abstract heads the public report and appears in research listings.</span>
+          </div>
+        </div>
+
+        <!-- Long-Form Report Body Editor with Markdown Toolbar & Preview -->
+        <div class="card-box body-editor-box">
+          <div class="editor-toolbar-header">
+            <label for="content">Report Body Content (Markdown) <span class="required-mark">*</span></label>
+            <div class="mode-tabs">
+              <button type="button" id="tab-write" class="mode-tab active">Write</button>
+              <button type="button" id="tab-preview" class="mode-tab">Preview</button>
+            </div>
+          </div>
+
+          <!-- Formatting Toolbar -->
+          <div class="markdown-toolbar" id="md-toolbar">
+            <button type="button" class="tb-btn" data-tag="h2" title="Section Heading (H2)">H2</button>
+            <button type="button" class="tb-btn" data-tag="h3" title="Subheading (H3)">H3</button>
+            <span class="tb-sep"></span>
+            <button type="button" class="tb-btn" data-tag="bold" title="Bold Text"><strong>B</strong></button>
+            <button type="button" class="tb-btn" data-tag="italic" title="Italic Text"><em>I</em></button>
+            <span class="tb-sep"></span>
+            <button type="button" class="tb-btn" data-tag="ul" title="Bulleted List">&bull; List</button>
+            <button type="button" class="tb-btn" data-tag="ol" title="Numbered List">1. List</button>
+            <button type="button" class="tb-btn" data-tag="quote" title="Blockquote">&ldquo; Quote</button>
+            <button type="button" class="tb-btn" data-tag="callout" title="Intelligence Callout">[!] Note</button>
+            <span class="tb-sep"></span>
+            <button type="button" class="tb-btn" data-tag="table" title="Data Table">&#8862; Table</button>
+            <button type="button" class="tb-btn" data-tag="citation" title="Footnote / Source Citation">[^1] Citation</button>
+            <button type="button" class="tb-btn" data-tag="divider" title="Section Divider">&mdash; Divider</button>
+          </div>
+
+          <!-- Write Panel -->
+          <div id="write-panel" class="editor-pane">
+            <textarea
+              id="content"
+              name="content"
+              rows="24"
+            >{report.content}</textarea>
+          </div>
+
+          <!-- Preview Panel -->
+          <div id="preview-panel" class="editor-pane preview-pane" hidden>
+            <div id="preview-render-target" class="prose-report preview-content"></div>
+          </div>
+
+          <div class="editor-statusbar">
+            <span id="word-count">0 words</span>
+            <span id="calc-reading-time">{report.reading_time_minutes} min reading time</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Metadata & Publishing Column -->
+      <aside class="editor-sidebar-col">
+        <!-- Publication State Card -->
+        <div class="card-box">
+          <p class="sidebar-box-title">Publication Status</p>
+
+          <div class="form-field">
+            <label for="status">Status</label>
+            <select id="status" name="status">
+              <option value="draft" selected={report.status === 'draft'}>Draft (Private)</option>
+              <option value="published" selected={report.status === 'published'}>Published (Live)</option>
+              <option value="archived" selected={report.status === 'archived'}>Archived (Vault)</option>
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label for="published_at">Publication Date</label>
+            <input
+              type="date"
+              id="published_at"
+              name="published_at"
+              value={report.published_at || ''}
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="author">Publication Attribution</label>
+            <input type="text" id="author" name="author" value={report.author} />
+          </div>
+
+          <div class="form-field">
+            <label for="reading_time_minutes">Reading Time (Minutes)</label>
+            <input
+              type="number"
+              id="reading_time_minutes"
+              name="reading_time_minutes"
+              value={report.reading_time_minutes}
+              min="1"
+              max="180"
+            />
+          </div>
+        </div>
+
+        <!-- Attachments & Media -->
+        <div class="card-box">
+          <p class="sidebar-box-title">Attachments &amp; Visuals</p>
+
+          <div class="form-field">
+            <label for="cover_image_url">Cover Graphic / Preview URL</label>
+            <input
+              type="text"
+              id="cover_image_url"
+              name="cover_image_url"
+              value={report.cover_image_url}
+              placeholder="/uploads/..."
+            />
+            <span class="field-hint"><a href="/admin/media" target="_blank">Open Media Library ↗</a></span>
+          </div>
+
+          <div class="form-field">
+            <label for="pdf_attachment_url">Downloadable PDF Dossier URL</label>
+            <input
+              type="text"
+              id="pdf_attachment_url"
+              name="pdf_attachment_url"
+              value={report.pdf_attachment_url}
+              placeholder="/uploads/report.pdf"
+            />
+          </div>
+        </div>
+
+        <!-- Search & Social Metadata -->
+        <div class="card-box">
+          <p class="sidebar-box-title">Search &amp; Social Metadata</p>
+
+          <div class="form-field">
+            <label for="seo_title">Custom Meta Title</label>
+            <input type="text" id="seo_title" name="seo_title" value={report.seo_title} />
+          </div>
+
+          <div class="form-field">
+            <label for="seo_description">Custom Meta Description</label>
+            <textarea id="seo_description" name="seo_description" rows="3">{report.seo_description}</textarea>
+          </div>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="card-box danger-box">
+          <p class="sidebar-box-title">Management Actions</p>
+          <div class="action-buttons-stack">
+            <button type="button" id="duplicate-report-btn" class="btn btn-secondary btn-sm">
+              Duplicate as New Draft
+            </button>
+            <button type="button" id="delete-report-btn" class="btn btn-danger btn-sm">
+              Delete Report Permanently
+            </button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </form>
+</AdminLayout>
+
+<script>
+  import { marked } from 'marked';
+
+  let isDirty = false;
+  const form = document.getElementById('report-form') as HTMLFormElement;
+  const reportId = form.getAttribute('data-id')!;
+
+  const titleInput = document.getElementById('title') as HTMLInputElement;
+  const slugInput = document.getElementById('slug') as HTMLInputElement;
+  const slugPreview = document.getElementById('slug-preview');
+  const contentInput = document.getElementById('content') as HTMLTextAreaElement;
+  const wordCountEl = document.getElementById('word-count');
+  const readTimeEl = document.getElementById('calc-reading-time');
+  const saveIndicator = document.getElementById('save-indicator');
+
+  const tabWrite = document.getElementById('tab-write');
+  const tabPreview = document.getElementById('tab-preview');
+  const writePanel = document.getElementById('write-panel');
+  const previewPanel = document.getElementById('preview-panel');
+  const previewTarget = document.getElementById('preview-render-target');
+
+  slugInput?.addEventListener('input', () => {
+    if (slugPreview) slugPreview.textContent = slugInput.value || 'slug';
+    markDirty();
+  });
+
+  titleInput?.addEventListener('input', markDirty);
+
+  function updateCounters() {
+    if (!contentInput) return;
+    const words = contentInput.value.trim().split(/\s+/).filter(Boolean).length;
+    if (wordCountEl) wordCountEl.textContent = `${words} words`;
+    const minutes = Math.max(1, Math.ceil(words / 200));
+    if (readTimeEl) readTimeEl.textContent = `${minutes} min reading time`;
+  }
+
+  contentInput?.addEventListener('input', () => {
+    updateCounters();
+    markDirty();
+  });
+
+  // Init word counts
+  updateCounters();
+
+  function markDirty() {
+    isDirty = true;
+    if (saveIndicator) {
+      saveIndicator.textContent = 'Unsaved changes';
+      saveIndicator.className = 'save-indicator dirty';
+    }
+  }
+
+  function markSaved() {
+    isDirty = false;
+    if (saveIndicator) {
+      saveIndicator.textContent = 'Changes saved';
+      saveIndicator.className = 'save-indicator saved';
+    }
+  }
+
+  window.addEventListener('beforeunload', (e) => {
+    if (isDirty) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+
+  // Tab Toggle
+  tabWrite?.addEventListener('click', () => {
+    tabWrite.classList.add('active');
+    tabPreview?.classList.remove('active');
+    if (writePanel) writePanel.hidden = false;
+    if (previewPanel) previewPanel.hidden = true;
+  });
+
+  tabPreview?.addEventListener('click', () => {
+    tabPreview.classList.add('active');
+    tabWrite?.classList.remove('active');
+    if (writePanel) writePanel.hidden = true;
+    if (previewPanel) {
+      previewPanel.hidden = false;
+      if (previewTarget && contentInput) {
+        previewTarget.innerHTML = marked.parse(contentInput.value) as string;
+      }
+    }
+  });
+
+  // Toolbar
+  document.querySelectorAll('.tb-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tag = btn.getAttribute('data-tag');
+      if (!contentInput) return;
+
+      const start = contentInput.selectionStart;
+      const end = contentInput.selectionEnd;
+      const sel = contentInput.value.substring(start, end);
+
+      let insert = '';
+      switch (tag) {
+        case 'h2':
+          insert = `\n## ${sel || 'Section Heading'}\n`;
+          break;
+        case 'h3':
+          insert = `\n### ${sel || 'Subheading'}\n`;
+          break;
+        case 'bold':
+          insert = `**${sel || 'bold text'}**`;
+          break;
+        case 'italic':
+          insert = `*${sel || 'italic text'}*`;
+          break;
+        case 'ul':
+          insert = `\n- ${sel || 'List item 1'}\n- List item 2\n`;
+          break;
+        case 'ol':
+          insert = `\n1. ${sel || 'First step'}\n2. Second step\n`;
+          break;
+        case 'quote':
+          insert = `\n> ${sel || 'Important executive quotation or excerpt.'}\n`;
+          break;
+        case 'callout':
+          insert = `\n> [!NOTE]\n> Key analytical observation or data constraint.\n`;
+          break;
+        case 'table':
+          insert = `\n| Metric | Baseline | Observed | Variance |\n| :--- | :--- | :--- | :--- |\n| Capacity | 100 MW | 62 MW | -38% |\n| Efficiency | 94.2% | 88.7% | -5.5% |\n`;
+          break;
+        case 'citation':
+          insert = ` [^1]\n\n[^1]: Source attribution, filing reference, or empirical data registry.`;
+          break;
+        case 'divider':
+          insert = `\n\n---\n\n`;
+          break;
+      }
+
+      contentInput.setRangeText(insert, start, end, 'end');
+      contentInput.focus();
+      updateCounters();
+      markDirty();
+    });
+  });
+
+  // Save report
+  async function saveReport(overrideStatus?: 'draft' | 'published') {
+    if (!titleInput.value.trim()) {
+      alert('Report title is required.');
+      titleInput.focus();
+      return false;
+    }
+
+    const summaryInput = document.getElementById('summary') as HTMLTextAreaElement;
+    if (!summaryInput.value.trim()) {
+      alert('Executive summary is required.');
+      summaryInput.focus();
+      return false;
+    }
+
+    const categorySelect = document.getElementById('category_id') as HTMLSelectElement;
+    const statusSelect = document.getElementById('status') as HTMLSelectElement;
+    const statusVal = overrideStatus || statusSelect.value;
+
+    const payload = {
+      title: titleInput.value.trim(),
+      subtitle: (document.getElementById('subtitle') as HTMLInputElement).value.trim(),
+      slug: slugInput.value.trim(),
+      summary: summaryInput.value.trim(),
+      content: contentInput.value,
+      category_id: categorySelect.value || null,
+      status: statusVal,
+      author: (document.getElementById('author') as HTMLInputElement).value.trim(),
+      reading_time_minutes: (document.getElementById('reading_time_minutes') as HTMLInputElement).value || undefined,
+      cover_image_url: (document.getElementById('cover_image_url') as HTMLInputElement).value.trim(),
+      pdf_attachment_url: (document.getElementById('pdf_attachment_url') as HTMLInputElement).value.trim(),
+      seo_title: (document.getElementById('seo_title') as HTMLInputElement).value.trim(),
+      seo_description: (document.getElementById('seo_description') as HTMLTextAreaElement).value.trim(),
+      published_at: (document.getElementById('published_at') as HTMLInputElement).value || null,
+    };
+
+    if (saveIndicator) {
+      saveIndicator.textContent = 'Saving...';
+      saveIndicator.className = 'save-indicator saving';
+    }
+
+    try {
+      const res = await fetch(`/api/admin/reports/${reportId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        markSaved();
+        if (overrideStatus === 'published') {
+          alert('Report published successfully!');
+          window.location.reload();
+        }
+        return true;
+      } else {
+        alert('Failed to update report: ' + (data.error || 'Server error'));
+        if (saveIndicator) saveIndicator.textContent = 'Save failed';
+        return false;
+      }
+    } catch {
+      alert('Network error while saving report.');
+      if (saveIndicator) saveIndicator.textContent = 'Save failed';
+      return false;
+    }
+  }
+
+  document.getElementById('save-draft-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    saveReport();
+  });
+
+  document.getElementById('publish-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (confirm('Publish this report to the live public dossier?')) {
+      saveReport('published');
+    }
+  });
+
+  document.getElementById('unpublish-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (confirm('Unpublish this report and return it to private draft status?')) {
+      saveReport('draft');
+    }
+  });
+
+  document.getElementById('duplicate-report-btn')?.addEventListener('click', async () => {
+    if (confirm('Duplicate this report as a new draft?')) {
+      try {
+        const res = await fetch(`/api/admin/reports/${reportId}/duplicate`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          window.location.href = `/admin/reports/${data.report.id}/edit`;
+        } else {
+          alert('Failed to duplicate: ' + (data.error || 'Error'));
+        }
+      } catch {
+        alert('Connection error.');
+      }
+    }
+  });
+
+  document.getElementById('delete-report-btn')?.addEventListener('click', async () => {
+    if (confirm(`Permanently delete "${titleInput.value}"? This action cannot be undone.`)) {
+      try {
+        const res = await fetch(`/api/admin/reports/${reportId}`, { method: 'DELETE' });
+        if (res.ok) {
+          alert('Report deleted.');
+          window.location.href = '/admin/reports';
+        } else {
+          alert('Failed to delete report.');
+        }
+      } catch {
+        alert('Network error.');
+      }
+    }
+  });
+
+  // Autosave every 30 seconds if dirty
+  setInterval(() => {
+    if (isDirty && titleInput.value.trim().length > 3) {
+      saveReport();
+    }
+  }, 30000);
+</script>
+
+<style>
+  .editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 2rem;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .back-link {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    margin-bottom: 0.25rem;
+    display: inline-block;
+  }
+
+  .back-link:hover {
+    color: var(--text-primary);
+  }
+
+  .editor-title {
+    font-size: 2.25rem;
+  }
+
+  .header-status {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+
+  .save-indicator {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .save-indicator.dirty {
+    color: #b78103;
+  }
+
+  .save-indicator.saving {
+    color: #1e3a8a;
+  }
+
+  .save-indicator.saved {
+    color: #166534;
+  }
+
+  .editor-top-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .editor-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 2rem;
+  }
+
+  .card-box {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 1.75rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .input-lg {
+    font-size: 1.15rem;
+    font-weight: 600;
+  }
+
+  .form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+  }
+
+  .form-field {
+    margin-bottom: 1.25rem;
+  }
+
+  .form-field:last-child {
+    margin-bottom: 0;
+  }
+
+  .field-hint {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.35rem;
+  }
+
+  .required-mark {
+    color: #b91c1c;
+  }
+
+  /* Body Editor */
+  .editor-toolbar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+
+  .mode-tabs {
+    display: flex;
+    border: 1px solid var(--border-subtle);
+  }
+
+  .mode-tab {
+    background: none;
+    border: none;
+    padding: 0.3rem 0.85rem;
+    font-size: 0.8125rem;
+    cursor: pointer;
+    color: var(--text-muted);
+  }
+
+  .mode-tab.active {
+    background-color: var(--text-primary);
+    color: #ffffff;
+    font-weight: 500;
+  }
+
+  .markdown-toolbar {
+    display: flex;
+    gap: 0.3rem;
+    align-items: center;
+    padding: 0.5rem;
+    background-color: var(--bg-subtle);
+    border: 1px solid var(--border-subtle);
+    border-bottom: none;
+    flex-wrap: wrap;
+  }
+
+  .tb-btn {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 0.25rem 0.55rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    border-radius: 2px;
+  }
+
+  .tb-btn:hover {
+    border-color: var(--text-primary);
+  }
+
+  .tb-sep {
+    width: 1px;
+    height: 16px;
+    background-color: var(--border-subtle);
+    margin: 0 0.25rem;
+  }
+
+  .editor-pane textarea {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    line-height: 1.6;
+    border-top: none;
+    border-radius: 0;
+    resize: vertical;
+  }
+
+  .preview-pane {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 2rem;
+    min-height: 480px;
+    overflow-y: auto;
+  }
+
+  .editor-statusbar {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .sidebar-box-title {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-primary);
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .danger-box {
+    border-color: #fecaca;
+  }
+
+  .action-buttons-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .action-buttons-stack button {
+    width: 100%;
+  }
+
+  @media (max-width: 960px) {
+    .editor-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

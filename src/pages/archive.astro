@@ -1,0 +1,371 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getPublishedReports, getCategories } from '../lib/db.ts';
+
+const categories = getCategories();
+
+const searchQuery = Astro.url.searchParams.get('q') || '';
+const categoryFilter = Astro.url.searchParams.get('category') || '';
+const sortOrder = Astro.url.searchParams.get('sort') === 'oldest' ? 'oldest' : 'newest';
+
+const { reports, total } = getPublishedReports({
+  search: searchQuery || undefined,
+  categorySlug: categoryFilter || undefined,
+  sort: sortOrder,
+  limit: 100, // Archive view displays complete publication records
+});
+
+// Group by Year for chronological archival display
+const reportsByYear = reports.reduce((acc, report) => {
+  const dateStr = report.published_at || report.created_at;
+  const year = dateStr.slice(0, 4);
+  if (!acc[year]) acc[year] = [];
+  acc[year].push(report);
+  return acc;
+}, {} as Record<string, typeof reports>);
+
+const sortedYears = Object.keys(reportsByYear).sort((a, b) => {
+  return sortOrder === 'oldest' ? Number(a) - Number(b) : Number(b) - Number(a);
+});
+---
+
+<Layout
+  title="Research Archive | 0served"
+  description="Search and filter the complete archive of 0served research reports, analytical dossiers, and investigations."
+>
+  <div class="site-container">
+    <div class="archive-header">
+      <p class="eyebrow-label">Repository</p>
+      <h1 class="archive-title">Research Archive</h1>
+      <p class="archive-lead">
+        A chronological repository of all published intelligence reports, empirical studies, and analytical findings released by 0served.
+      </p>
+    </div>
+
+    <!-- Search & Filter Console -->
+    <div class="archive-console">
+      <form method="GET" action="/archive" class="search-form" id="archive-form">
+        <div class="form-row">
+          <div class="search-input-wrap">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input
+              type="search"
+              name="q"
+              id="search-input"
+              value={searchQuery}
+              placeholder="Search reports by title, key findings, or concepts..."
+              aria-label="Search reports"
+            />
+          </div>
+
+          <div class="filter-select-wrap">
+            <select name="category" id="category-select" aria-label="Filter by Domain" onchange="this.form.submit()">
+              <option value="">All Research Domains</option>
+              {categories.map((c) => (
+                <option value={c.slug} selected={categoryFilter === c.slug}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div class="sort-select-wrap">
+            <select name="sort" id="sort-order" aria-label="Sort order" onchange="this.form.submit()">
+              <option value="newest" selected={sortOrder === 'newest'}>Newest First</option>
+              <option value="oldest" selected={sortOrder === 'oldest'}>Oldest First</option>
+            </select>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+          {(searchQuery || categoryFilter) && (
+            <a href="/archive" class="btn btn-secondary btn-sm">Reset</a>
+          )}
+        </div>
+      </form>
+
+      <div class="results-meta-bar">
+        <span>
+          Showing <strong>{total}</strong> published {total === 1 ? 'dossier' : 'dossiers'}
+          {categoryFilter ? ` in ${categories.find((c) => c.slug === categoryFilter)?.name}` : ''}
+          {searchQuery ? ` matching "${searchQuery}"` : ''}
+        </span>
+      </div>
+    </div>
+
+    <!-- Archival Listing By Year -->
+    {total > 0 ? (
+      <div class="archive-timeline">
+        {sortedYears.map((year) => (
+          <section class="year-group">
+            <div class="year-label-col">
+              <h2 class="year-heading">{year}</h2>
+              <span class="year-count">{reportsByYear[year].length} reports</span>
+            </div>
+
+            <div class="year-reports-col">
+              <ul class="archive-list">
+                {reportsByYear[year].map((report) => (
+                  <li class="archive-row">
+                    <div class="row-meta">
+                      <time datetime={report.published_at || report.created_at} class="row-date">
+                        {(report.published_at || report.created_at).slice(5, 10)}
+                      </time>
+                      <span class="row-cat">{report.category_name}</span>
+                    </div>
+
+                    <div class="row-content">
+                      <h3 class="row-title">
+                        <a href={`/research/${report.slug}`}>{report.title}</a>
+                      </h3>
+                      <p class="row-summary">{report.summary}</p>
+                    </div>
+
+                    <div class="row-actions">
+                      <span class="row-readtime">{report.reading_time_minutes} min read</span>
+                      <a href={`/research/${report.slug}`} class="row-link">Read &rarr;</a>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        ))}
+      </div>
+    ) : (
+      <div class="empty-archive-state">
+        <p class="empty-title">No matching publications found.</p>
+        <p class="empty-desc">
+          Try expanding your search query or selecting a different research domain.
+        </p>
+        <a href="/archive" class="btn btn-secondary btn-sm">Clear Search Criteria</a>
+      </div>
+    )}
+  </div>
+</Layout>
+
+<style>
+  .archive-header {
+    padding: 4.5rem 0 2.5rem;
+    max-width: 800px;
+  }
+
+  .archive-title {
+    font-size: 2.75rem;
+    line-height: 1.2;
+    margin: 0.85rem 0 1rem;
+  }
+
+  .archive-lead {
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+  }
+
+  /* Console */
+  .archive-console {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 1.5rem;
+    margin-bottom: 3.5rem;
+  }
+
+  .form-row {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .search-input-wrap {
+    flex-grow: 1;
+    min-width: 260px;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 0.85rem;
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+
+  .search-input-wrap input {
+    padding-left: 2.4rem;
+  }
+
+  .filter-select-wrap,
+  .sort-select-wrap {
+    min-width: 180px;
+  }
+
+  .results-meta-bar {
+    border-top: 1px solid var(--border-subtle);
+    margin-top: 1.25rem;
+    padding-top: 0.85rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  /* Timeline */
+  .archive-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 4rem;
+    margin-bottom: 6rem;
+  }
+
+  .year-group {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 3rem;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 2rem;
+  }
+
+  .year-heading {
+    font-family: var(--font-mono);
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .year-count {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: block;
+    margin-top: 0.25rem;
+  }
+
+  .archive-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .archive-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 120px;
+    gap: 2rem;
+    padding: 1.5rem 0;
+    border-bottom: 1px solid var(--border-subtle);
+    align-items: baseline;
+  }
+
+  .archive-row:last-child {
+    border-bottom: none;
+  }
+
+  .row-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .row-date {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .row-cat {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .row-title {
+    font-size: 1.25rem;
+    line-height: 1.35;
+    margin-bottom: 0.5rem;
+  }
+
+  .row-title a {
+    color: var(--text-primary);
+    text-decoration: none;
+  }
+
+  .row-title a:hover {
+    color: var(--color-accent);
+  }
+
+  .row-summary {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    margin-bottom: 0;
+  }
+
+  .row-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+  }
+
+  .row-readtime {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .row-link {
+    font-weight: 600;
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .row-link:hover {
+    text-decoration: underline;
+  }
+
+  .empty-archive-state {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 4rem 2rem;
+    text-align: center;
+    max-width: 600px;
+    margin: 2rem auto 6rem;
+  }
+
+  .empty-title {
+    font-family: var(--font-serif);
+    font-size: 1.35rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .empty-desc {
+    font-size: 0.9375rem;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+  }
+
+  @media (max-width: 860px) {
+    .year-group {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    .archive-row {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+
+    .row-actions {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+    }
+  }
+</style>

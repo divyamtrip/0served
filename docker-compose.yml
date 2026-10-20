@@ -1,0 +1,21 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oserved-publication
+    restart: unless-stopped
+    ports:
+      - "4321:4321"
+    environment:
+      - NODE_ENV=production
+      - HOST=0.0.0.0
+      - PORT=4321
+      - DATABASE_PATH=/app/data/0served.db
+    volumes:
+      - oserved-data:/app/data
+      - oserved-uploads:/app/public/uploads
+
+volumes:
+  oserved-data:
+  oserved-uploads:

@@ -1,0 +1,257 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getSiteSettings } from '../lib/db.ts';
+import { BRAND_PRINCIPLES } from '../consts.ts';
+
+const settings = getSiteSettings();
+---
+
+<Layout
+  title="About 0served | Independent Research & Intelligence"
+  description="0served investigates markets, companies, industries, competitive dynamics, and emerging developments to turn fragmented evidence into structured intelligence."
+>
+  <div class="site-container">
+    <div class="about-hero">
+      <p class="eyebrow-label">Foundations &amp; Practice</p>
+      <h1 class="about-title">About 0served</h1>
+      <p class="about-lead">
+        0served is an independent research and intelligence company. We examine markets, companies, industries, competitive dynamics, and technological transitions with an emphasis on primary evidence, physical constraints, and balance sheet reality.
+      </p>
+    </div>
+
+    <div class="editorial-divider"></div>
+
+    <div class="about-body-grid">
+      <div class="about-content">
+        <!-- Mission & Scope -->
+        <section class="about-block">
+          <h2 class="block-heading">Purpose &amp; Scope</h2>
+          <p>
+            The modern information landscape is saturated with marketing announcements, sponsored benchmarks, and speculative forecasts. Important decisions, however, require rigorous empirical analysis unclouded by promotional motives.
+          </p>
+          <p>
+            0served exists to turn fragmented information into structured evidence, rigorous analysis, and useful intelligence. We follow capital allocations, interrogate corporate filings, inspect operational telemetry, and analyze systemic incentives.
+          </p>
+        </section>
+
+        <!-- Methodological Approach -->
+        <section class="about-block">
+          <h2 class="block-heading">Approach to Evidence</h2>
+          <p>
+            Our analytical approach is grounded in verifiable evidence. When analyzing corporate performance or market transitions, we examine primary sources:
+          </p>
+          <ul class="methodology-list">
+            <li><strong>Regulatory Filings &amp; Financial Forensics:</strong> Detailed inspection of footnotes, capital expenditure recognition, impairment schedules, and inventory velocity.</li>
+            <li><strong>Physical &amp; Infrastructure Constraints:</strong> Measurement of transmission interconnect queues, power availability, thermal limitations, and supply chain bottlenecks.</li>
+            <li><strong>Competitive &amp; Market Moats:</strong> Quantification of pricing power, switching costs, gross margin sustainability, and structural customer concentration.</li>
+          </ul>
+        </section>
+
+        <!-- Editorial Principles -->
+        <section class="about-block" id="principles">
+          <h2 class="block-heading">Editorial &amp; Research Principles</h2>
+          <div class="principles-grid">
+            {BRAND_PRINCIPLES.map((principle) => (
+              <div class="principle-item">
+                <h3 class="principle-title">{principle.title}</h3>
+                <p class="principle-desc">{principle.description}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <!-- Independence & Boundaries -->
+        <section class="about-block">
+          <h2 class="block-heading">Independence &amp; Standards</h2>
+          <p>
+            0served does not accept sponsored content, vendor-commissioned research, or advertising placements. We do not provide retail investment advice, nor do we issue speculative stock price targets.
+          </p>
+          <p>
+            Our publications are designed for executives, institutional researchers, analysts, and decision-makers who require unvarnished, high-signal intelligence.
+          </p>
+        </section>
+      </div>
+
+      <!-- Sidebar -->
+      <aside class="about-sidebar">
+        <div class="sidebar-box">
+          <p class="sidebar-label">Institutional Profile</p>
+          <dl class="profile-meta">
+            <dt>Entity</dt>
+            <dd>0served</dd>
+            <dt>Practice</dt>
+            <dd>Independent Intelligence &amp; Strategic Research</dd>
+            <dt>Publication Domain</dt>
+            <dd><a href="https://oserved.com">oserved.com</a></dd>
+            <dt>Desk Inquiries</dt>
+            <dd><a href={`mailto:${settings.contact_email}`}>{settings.contact_email}</a></dd>
+            <dt>Response Protocol</dt>
+            <dd>{settings.contact_response_time}</dd>
+          </dl>
+
+          <div class="sidebar-divider"></div>
+
+          <a href="/contact" class="btn btn-primary" style="width: 100%;">
+            Contact Research Desk &rarr;
+          </a>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .about-hero {
+    padding: 4.5rem 0 2.5rem;
+    max-width: 820px;
+  }
+
+  .about-title {
+    font-size: 2.75rem;
+    line-height: 1.2;
+    margin: 0.85rem 0 1rem;
+  }
+
+  .about-lead {
+    font-family: var(--font-serif);
+    font-size: 1.2rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+  }
+
+  .about-body-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 4.5rem;
+    padding-bottom: 6rem;
+  }
+
+  .about-block {
+    margin-bottom: 3.5rem;
+  }
+
+  .block-heading {
+    font-size: 1.65rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .about-content p {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    line-height: 1.8;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+  }
+
+  .methodology-list {
+    margin: 1.5rem 0 2rem;
+    padding-left: 1.5rem;
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    line-height: 1.75;
+    color: var(--text-secondary);
+  }
+
+  .methodology-list li {
+    margin-bottom: 0.85rem;
+  }
+
+  .methodology-list strong {
+    color: var(--text-primary);
+  }
+
+  /* Principles */
+  .principles-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .principle-item {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 1.5rem 1.75rem;
+    border-left: 3px solid var(--color-accent);
+  }
+
+  .principle-title {
+    font-size: 1.15rem;
+    margin-bottom: 0.45rem;
+  }
+
+  .principle-desc {
+    font-family: var(--font-sans) !important;
+    font-size: 0.9375rem !important;
+    line-height: 1.6 !important;
+    color: var(--text-secondary) !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Sidebar */
+  .about-sidebar {
+    position: relative;
+  }
+
+  .sidebar-box {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 2rem;
+    position: sticky;
+    top: 96px;
+  }
+
+  .sidebar-label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-primary);
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+  }
+
+  .profile-meta {
+    font-size: 0.875rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .profile-meta dt {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .profile-meta dd {
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-left: 0;
+  }
+
+  .profile-meta dd a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .sidebar-divider {
+    height: 1px;
+    background-color: var(--border-subtle);
+    margin: 1.5rem 0;
+  }
+
+  @media (max-width: 900px) {
+    .about-body-grid {
+      grid-template-columns: 1fr;
+      gap: 3rem;
+    }
+
+    .sidebar-box {
+      position: static;
+    }
+  }
+</style>

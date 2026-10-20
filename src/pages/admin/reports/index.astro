@@ -1,0 +1,453 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { getAllReportsAdmin, getCategories } from '../../../lib/db.ts';
+
+const categories = getCategories(true);
+
+const statusParam = Astro.url.searchParams.get('status') || 'all';
+const categoryParam = Astro.url.searchParams.get('category') || 'all';
+const searchParam = Astro.url.searchParams.get('q') || '';
+
+const reports = getAllReportsAdmin({
+  status: statusParam,
+  categoryId: categoryParam,
+  search: searchParam,
+});
+---
+
+<AdminLayout title="Report Management">
+  <div class="reports-header">
+    <div>
+      <p class="eyebrow-label">Editorial Repository</p>
+      <h1 class="page-title">Reports Management</h1>
+    </div>
+    <div class="header-actions">
+      <a href="/admin/reports/new" class="btn btn-primary">+ Create New Report</a>
+    </div>
+  </div>
+
+  <!-- Filters & Search Toolbar -->
+  <div class="admin-filter-bar">
+    <form method="GET" action="/admin/reports" class="filter-form">
+      <div class="filter-row">
+        <div class="search-field">
+          <input
+            type="search"
+            name="q"
+            value={searchParam}
+            placeholder="Search by title or slug..."
+            aria-label="Search reports"
+          />
+        </div>
+
+        <div class="select-field">
+          <select name="status" onchange="this.form.submit()" aria-label="Filter by Status">
+            <option value="all" selected={statusParam === 'all'}>All Statuses</option>
+            <option value="published" selected={statusParam === 'published'}>Published Only</option>
+            <option value="draft" selected={statusParam === 'draft'}>Drafts Only</option>
+            <option value="archived" selected={statusParam === 'archived'}>Archived Only</option>
+          </select>
+        </div>
+
+        <div class="select-field">
+          <select name="category" onchange="this.form.submit()" aria-label="Filter by Domain">
+            <option value="all" selected={categoryParam === 'all'}>All Domains</option>
+            {categories.map((c) => (
+              <option value={c.id} selected={categoryParam === c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+        {(statusParam !== 'all' || categoryParam !== 'all' || searchParam) && (
+          <a href="/admin/reports" class="btn btn-secondary btn-sm">Reset</a>
+        )}
+      </div>
+    </form>
+  </div>
+
+  <!-- Reports Table -->
+  <div class="table-card">
+    {reports.length > 0 ? (
+      <div class="table-container">
+        <table class="reports-table">
+          <thead>
+            <tr>
+              <th>Title &amp; Slug</th>
+              <th>Domain</th>
+              <th>Status</th>
+              <th>Publication Date</th>
+              <th>Reading Time</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {reports.map((report) => (
+              <tr id={`row-${report.id}`}>
+                <td class="col-title">
+                  <a href={`/admin/reports/${report.id}/edit`} class="report-title-link">
+                    {report.title}
+                  </a>
+                  <span class="report-slug-meta">/research/{report.slug}</span>
+                </td>
+                <td>
+                  <span class="table-category">{report.category_name}</span>
+                </td>
+                <td>
+                  <span class:list={['badge', `badge-${report.status}`]}>
+                    {report.status}
+                  </span>
+                </td>
+                <td>
+                  <time class="table-date">
+                    {report.published_at || (report.status === 'draft' ? 'Unpublished' : report.created_at.slice(0, 10))}
+                  </time>
+                </td>
+                <td>
+                  <span class="table-readtime">{report.reading_time_minutes} min</span>
+                </td>
+                <td>
+                  <div class="actions-group">
+                    <a href={`/admin/reports/${report.id}/edit`} class="btn btn-secondary btn-sm">
+                      Edit
+                    </a>
+
+                    <a
+                      href={`/research/${report.slug}?preview=true`}
+                      target="_blank"
+                      class="btn btn-secondary btn-sm"
+                      title="Open full report in preview mode"
+                    >
+                      Preview
+                    </a>
+
+                    {report.status === 'published' ? (
+                      <button
+                        class="btn btn-secondary btn-sm status-toggle-btn"
+                        data-id={report.id}
+                        data-status="draft"
+                        title="Unpublish report (moves to draft)"
+                      >
+                        Unpublish
+                      </button>
+                    ) : (
+                      <button
+                        class="btn btn-primary btn-sm status-toggle-btn"
+                        data-id={report.id}
+                        data-status="published"
+                        title="Publish report to live website"
+                      >
+                        Publish
+                      </button>
+                    )}
+
+                    <button
+                      class="btn btn-secondary btn-sm duplicate-btn"
+                      data-id={report.id}
+                      title="Duplicate this report as a new draft"
+                    >
+                      Duplicate
+                    </button>
+
+                    {report.status !== 'archived' ? (
+                      <button
+                        class="btn btn-secondary btn-sm status-toggle-btn"
+                        data-id={report.id}
+                        data-status="archived"
+                        title="Move report to archive vault"
+                      >
+                        Archive
+                      </button>
+                    ) : (
+                      <button
+                        class="btn btn-secondary btn-sm status-toggle-btn"
+                        data-id={report.id}
+                        data-status="draft"
+                        title="Restore archived report to draft"
+                      >
+                        Restore
+                      </button>
+                    )}
+
+                    <button
+                      class="btn btn-danger btn-sm delete-btn"
+                      data-id={report.id}
+                      data-title={report.title}
+                      title="Permanently delete report"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <div class="empty-state-box">
+        <p class="empty-title">No reports match the active filters.</p>
+        <p class="empty-desc">Create a new publication or reset your filter criteria.</p>
+        <a href="/admin/reports/new" class="btn btn-primary btn-sm">+ Draft New Report</a>
+      </div>
+    )}
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <dialog id="delete-modal" class="admin-modal">
+    <div class="modal-content">
+      <h3 class="modal-title">Delete Report</h3>
+      <p class="modal-text">
+        Are you sure you want to permanently delete <strong id="delete-report-name"></strong>?
+        This action cannot be undone. If you only wish to remove it from public view, consider archiving it instead.
+      </p>
+      <div class="modal-actions">
+        <button id="cancel-delete-btn" class="btn btn-secondary btn-sm">Cancel</button>
+        <button id="confirm-delete-btn" class="btn btn-danger btn-sm">Confirm Permanent Deletion</button>
+      </div>
+    </div>
+  </dialog>
+</AdminLayout>
+
+<script>
+  let targetReportIdToDelete = '';
+  const deleteModal = document.getElementById('delete-modal') as HTMLDialogElement | null;
+  const deleteReportNameEl = document.getElementById('delete-report-name');
+
+  // Handle Status Toggles (Publish, Unpublish, Archive, Restore)
+  document.querySelectorAll('.status-toggle-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id');
+      const newStatus = btn.getAttribute('data-status');
+      if (!id || !newStatus) return;
+
+      btn.textContent = 'Updating...';
+      try {
+        const res = await fetch(`/api/admin/reports/${id}/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus }),
+        });
+
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          alert('Failed to update report status.');
+          window.location.reload();
+        }
+      } catch (err) {
+        alert('Network error updating status.');
+      }
+    });
+  });
+
+  // Handle Duplicate
+  document.querySelectorAll('.duplicate-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id');
+      if (!id) return;
+
+      btn.textContent = 'Cloning...';
+      try {
+        const res = await fetch(`/api/admin/reports/${id}/duplicate`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          window.location.href = `/admin/reports/${data.report.id}/edit`;
+        } else {
+          alert('Failed to duplicate report: ' + (data.error || 'Server error'));
+          btn.textContent = 'Duplicate';
+        }
+      } catch (err) {
+        alert('Connection error while duplicating report.');
+        btn.textContent = 'Duplicate';
+      }
+    });
+  });
+
+  // Handle Delete Modal
+  document.querySelectorAll('.delete-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      targetReportIdToDelete = btn.getAttribute('data-id') || '';
+      const title = btn.getAttribute('data-title') || '';
+      if (deleteReportNameEl) deleteReportNameEl.textContent = `"${title}"`;
+      if (deleteModal) deleteModal.showModal();
+    });
+  });
+
+  document.getElementById('cancel-delete-btn')?.addEventListener('click', () => {
+    if (deleteModal) deleteModal.close();
+    targetReportIdToDelete = '';
+  });
+
+  document.getElementById('confirm-delete-btn')?.addEventListener('click', async () => {
+    if (!targetReportIdToDelete) return;
+    try {
+      const res = await fetch(`/api/admin/reports/${targetReportIdToDelete}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        if (deleteModal) deleteModal.close();
+        window.location.reload();
+      } else {
+        alert('Failed to delete report.');
+      }
+    } catch {
+      alert('Network error deleting report.');
+    }
+  });
+</script>
+
+<style>
+  .reports-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 2rem;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .page-title {
+    font-size: 2.25rem;
+    margin-top: 0.35rem;
+  }
+
+  /* Filter Bar */
+  .admin-filter-bar {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .filter-row {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .search-field {
+    flex-grow: 1;
+    min-width: 250px;
+  }
+
+  .select-field {
+    min-width: 170px;
+  }
+
+  /* Table Card */
+  .table-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .reports-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+  }
+
+  .reports-table th {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.75rem 1rem;
+    white-space: nowrap;
+  }
+
+  .reports-table td {
+    padding: 1rem;
+    vertical-align: middle;
+  }
+
+  .col-title {
+    max-width: 320px;
+  }
+
+  .report-title-link {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-decoration: none;
+    line-height: 1.35;
+    display: block;
+  }
+
+  .report-title-link:hover {
+    color: var(--color-accent);
+  }
+
+  .report-slug-meta {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    display: block;
+    margin-top: 0.25rem;
+  }
+
+  .table-category, .table-date, .table-readtime {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .actions-group {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+  }
+
+  .empty-state-box {
+    padding: 4rem 2rem;
+    text-align: center;
+  }
+
+  .empty-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .empty-desc {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+  }
+
+  /* Modal */
+  .admin-modal {
+    border: 1px solid var(--border-subtle);
+    border-radius: 2px;
+    padding: 2rem;
+    max-width: 480px;
+    margin: auto;
+    background-color: var(--bg-surface);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  }
+
+  .admin-modal::backdrop {
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+
+  .modal-title {
+    font-size: 1.35rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .modal-text {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+  }
+</style>

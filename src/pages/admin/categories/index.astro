@@ -1,0 +1,421 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { getCategories } from '../../../lib/db.ts';
+
+const categories = getCategories(true);
+---
+
+<AdminLayout title="Research Domains & Categories">
+  <div class="cat-header">
+    <div>
+      <p class="eyebrow-label">Classification Structure</p>
+      <h1 class="page-title">Research Domains</h1>
+      <p class="cat-sub">
+        Manage the analytical domains and market categories covered by 0served. Categories with active publications appear in the public navigation and research index.
+      </p>
+    </div>
+    <div>
+      <button id="add-cat-btn" class="btn btn-primary">+ Add New Domain</button>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-container">
+      <table class="cat-table">
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Domain Name &amp; Slug</th>
+            <th>Description</th>
+            <th>Status</th>
+            <th>Published Reports</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {categories.map((cat) => (
+            <tr>
+              <td>
+                <span class="order-badge">{cat.display_order}</span>
+              </td>
+              <td>
+                <strong class="cat-name">{cat.name}</strong>
+                <code class="cat-slug-text">/research?category={cat.slug}</code>
+              </td>
+              <td class="col-desc">
+                <span class="cat-desc-text">{cat.description || 'No description provided.'}</span>
+              </td>
+              <td>
+                <span class:list={['badge', cat.is_active ? 'badge-published' : 'badge-archived']}>
+                  {cat.is_active ? 'Active' : 'Hidden'}
+                </span>
+              </td>
+              <td>
+                <span class="report-count-chip">
+                  {cat.report_count ?? 0} {cat.report_count === 1 ? 'report' : 'reports'}
+                </span>
+              </td>
+              <td>
+                <div class="cat-actions">
+                  <button
+                    class="btn btn-secondary btn-sm edit-cat-btn"
+                    data-id={cat.id}
+                    data-name={cat.name}
+                    data-slug={cat.slug}
+                    data-description={cat.description}
+                    data-order={cat.display_order}
+                    data-active={cat.is_active}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    class="btn btn-danger btn-sm delete-cat-btn"
+                    data-id={cat.id}
+                    data-name={cat.name}
+                    data-count={cat.report_count ?? 0}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Category Create/Edit Modal -->
+  <dialog id="category-modal" class="admin-modal">
+    <div class="modal-content">
+      <h3 class="modal-title" id="cat-modal-title">Create Research Domain</h3>
+      <form id="category-form" class="modal-form" novalidate>
+        <input type="hidden" id="edit-cat-id" value="" />
+
+        <div class="form-field">
+          <label for="cat-name">Domain Name <span class="required-mark">*</span></label>
+          <input type="text" id="cat-name" required placeholder="e.g., Financial Forensics & Governance" />
+        </div>
+
+        <div class="form-field">
+          <label for="cat-slug">URL Slug <span class="required-mark">*</span></label>
+          <input type="text" id="cat-slug" required placeholder="financial-forensics" />
+          <span class="field-hint">Used in URLs: <code>/research?category=slug</code></span>
+        </div>
+
+        <div class="form-field">
+          <label for="cat-description">Domain Scope &amp; Description</label>
+          <textarea id="cat-description" rows="3" placeholder="Briefly define the scope of investigation for this market domain..."></textarea>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-field">
+            <label for="cat-order">Display Sequence</label>
+            <input type="number" id="cat-order" min="0" max="100" value="0" />
+          </div>
+
+          <div class="form-field">
+            <label for="cat-active">Visibility</label>
+            <select id="cat-active">
+              <option value="1">Active (Visible)</option>
+              <option value="0">Hidden (Disabled)</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="modal-error" class="modal-error-banner" hidden></div>
+
+        <div class="modal-actions">
+          <button type="button" id="cancel-cat-btn" class="btn btn-secondary btn-sm">Cancel</button>
+          <button type="submit" id="save-cat-btn" class="btn btn-primary btn-sm">Save Domain</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+</AdminLayout>
+
+<script>
+  const modal = document.getElementById('category-modal') as HTMLDialogElement | null;
+  const form = document.getElementById('category-form') as HTMLFormElement | null;
+  const titleEl = document.getElementById('cat-modal-title');
+  const errorEl = document.getElementById('modal-error');
+
+  const idInput = document.getElementById('edit-cat-id') as HTMLInputElement;
+  const nameInput = document.getElementById('cat-name') as HTMLInputElement;
+  const slugInput = document.getElementById('cat-slug') as HTMLInputElement;
+  const descInput = document.getElementById('cat-description') as HTMLTextAreaElement;
+  const orderInput = document.getElementById('cat-order') as HTMLInputElement;
+  const activeSelect = document.getElementById('cat-active') as HTMLSelectElement;
+
+  // Auto-slug on name change if creating
+  nameInput?.addEventListener('input', () => {
+    if (!idInput.value && slugInput) {
+      slugInput.value = nameInput.value
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-');
+    }
+  });
+
+  document.getElementById('add-cat-btn')?.addEventListener('click', () => {
+    if (form) form.reset();
+    if (idInput) idInput.value = '';
+    if (titleEl) titleEl.textContent = 'Create Research Domain';
+    if (errorEl) { errorEl.hidden = true; errorEl.textContent = ''; }
+    if (modal) modal.showModal();
+  });
+
+  document.querySelectorAll('.edit-cat-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-id') || '';
+      const name = btn.getAttribute('data-name') || '';
+      const slug = btn.getAttribute('data-slug') || '';
+      const desc = btn.getAttribute('data-description') || '';
+      const order = btn.getAttribute('data-order') || '0';
+      const active = btn.getAttribute('data-active') || '1';
+
+      if (idInput) idInput.value = id;
+      if (nameInput) nameInput.value = name;
+      if (slugInput) slugInput.value = slug;
+      if (descInput) descInput.value = desc;
+      if (orderInput) orderInput.value = order;
+      if (activeSelect) activeSelect.value = active;
+
+      if (titleEl) titleEl.textContent = `Edit Domain: ${name}`;
+      if (errorEl) { errorEl.hidden = true; errorEl.textContent = ''; }
+      if (modal) modal.showModal();
+    });
+  });
+
+  document.getElementById('cancel-cat-btn')?.addEventListener('click', () => {
+    if (modal) modal.close();
+  });
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!nameInput.value.trim() || !slugInput.value.trim()) {
+      if (errorEl) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Name and slug are required.';
+      }
+      return;
+    }
+
+    const isEdit = !!idInput.value;
+    const url = isEdit ? `/api/admin/categories/${idInput.value}` : '/api/admin/categories';
+    const method = isEdit ? 'PUT' : 'POST';
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: nameInput.value.trim(),
+          slug: slugInput.value.trim(),
+          description: descInput.value.trim(),
+          display_order: parseInt(orderInput.value, 10) || 0,
+          is_active: parseInt(activeSelect.value, 10),
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (modal) modal.close();
+        window.location.reload();
+      } else {
+        if (errorEl) {
+          errorEl.hidden = false;
+          errorEl.textContent = data.error || 'Failed to save category.';
+        }
+      }
+    } catch {
+      if (errorEl) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Connection error.';
+      }
+    }
+  });
+
+  // Handle Delete
+  document.querySelectorAll('.delete-cat-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id');
+      const name = btn.getAttribute('data-name');
+      const count = parseInt(btn.getAttribute('data-count') || '0', 10);
+
+      if (count > 0) {
+        alert(`Cannot delete domain "${name}": It has ${count} published report(s) assigned to it. Reassign or delete those reports first to preserve publication integrity.`);
+        return;
+      }
+
+      if (confirm(`Permanently delete the research domain "${name}"?`)) {
+        try {
+          const res = await fetch(`/api/admin/categories/${id}`, { method: 'DELETE' });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            window.location.reload();
+          } else {
+            alert(data.error || 'Failed to delete domain.');
+          }
+        } catch {
+          alert('Network error deleting domain.');
+        }
+      }
+    });
+  });
+</script>
+
+<style>
+  .cat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 2rem;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .page-title {
+    font-size: 2.25rem;
+    margin-top: 0.35rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .cat-sub {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    color: var(--text-secondary);
+    max-width: 780px;
+  }
+
+  .table-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .cat-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+  }
+
+  .cat-table th {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.75rem 1rem;
+    white-space: nowrap;
+  }
+
+  .cat-table td {
+    padding: 1.15rem 1rem;
+    vertical-align: middle;
+  }
+
+  .order-badge {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+  }
+
+  .cat-name {
+    font-size: 0.9375rem;
+    display: block;
+    color: var(--text-primary);
+  }
+
+  .cat-slug-text {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    background-color: var(--bg-subtle);
+    padding: 0.1rem 0.35rem;
+    display: inline-block;
+    margin-top: 0.25rem;
+  }
+
+  .col-desc {
+    max-width: 380px;
+  }
+
+  .cat-desc-text {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .report-count-chip {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .cat-actions {
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  /* Modal */
+  .admin-modal {
+    border: 1px solid var(--border-subtle);
+    border-radius: 2px;
+    padding: 2.25rem;
+    max-width: 520px;
+    width: 90%;
+    margin: auto;
+    background-color: var(--bg-surface);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  }
+
+  .admin-modal::backdrop {
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+
+  .modal-title {
+    font-size: 1.45rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .form-field {
+    margin-bottom: 1.25rem;
+  }
+
+  .form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .field-hint {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.35rem;
+  }
+
+  .required-mark {
+    color: #b91c1c;
+  }
+
+  .modal-error-banner {
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.8125rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+</style>
